@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "334518941986",
+    "project_id": "tmbeira-addd0",
+    "storage_bucket": "tmbeira-addd0.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:334518941986:android:4ab36bba31d43a7db5cd7b",
+        "android_client_info": {
+          "package_name": "com.tpbcobrador.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBN2FbuVqJUeRcaMCFvA-N6PlqWr897yY0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
