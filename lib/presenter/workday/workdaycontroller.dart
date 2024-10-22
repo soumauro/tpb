@@ -1,18 +1,28 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cobradortpb/infra/apiname.dart';
 import 'package:cobradortpb/infra/models/workdaymodel.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../infra/models/trasportpasse.dart';
+
 class WorkdayController extends GetxController {
   // Lista de objetos WorkdayModel
   List<WorkdayModel>? workday;
-  late WorkdayModel _userWorkday;
+  late WorkdayModel userWorkday;
   DateTime today = DateTime.now();
+  List<Pass>? passList;
+  late Pass userpass;
+    // Variáveis para o Scanner e autenticar o passDe transport
+  final GlobalKey qrKeyPass = GlobalKey(debugLabel: 'QR');
+  QRViewController? qrControllerPass;
+  String? qrTextPass;
 
   // Variáveis para o Scanner de QR Code
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
@@ -27,20 +37,24 @@ class WorkdayController extends GetxController {
   StreamSubscription<Position>? positionStream;
   Position? userPosition;
 
+  // Timer para atualização automática da localização a cada 2 minutos
+  Timer? locationUpdateTimer;
+
   @override
   void onInit() {
     super.onInit();
 
-    getWorker('ojsodj');
+    getWorker();  // Obtém as informações do dia de trabalho do usuário
 
-    _determinePosition();
+    _determinePosition();  // Obtém a posição atual
 
-    positionStream =
-        Geolocator.getPositionStream(locationSettings: locationSettings)
-            .listen((Position? position) {
+    // Escuta as mudanças de posição e atualiza a localização
+    positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
+        .listen((Position? position) {
       if (position != null) {
         userPosition = position;
         print('Posição atual: ${position.latitude}, ${position.longitude}');
+        
       } else {
         print('Posição desconhecida');
       }
@@ -50,32 +64,44 @@ class WorkdayController extends GetxController {
   @override
   void onClose() {
     super.onClose();
-    // Descartar o controlador do QR Code, se existir
-    qrController?.dispose();
-    // Cancelar a subscrição do stream de geolocalização, se existir
-    positionStream?.cancel();
+    qrController?.dispose();  // Descartar o controlador do QR Code
+    positionStream?.cancel();  // Cancelar a subscrição do stream de geolocalização
+    locationUpdateTimer?.cancel();  // Cancelar o timer de atualização de localização
   }
 
   // Função chamada quando o QRView é criado
-  void _onQRViewCreated(QRViewController controller) {
-    qrController = controller;
-    controller.scannedDataStream.listen((scanData) {
-      if (scanData.code != null && scanData.code != qrText) {
-        qrText = scanData.code;
-        controller.pauseCamera(); // Pausar a câmera após a leitura
-        // Executar ação com o código QR
-        // performActionWithQRCode(qrText!);
-        updateWorkdy(1);
-        update(); // Atualizar a UI
+ void _onQRViewCreated(QRViewController controller) {
+  qrController = controller;
+  controller.scannedDataStream.listen((scanData) {
+    if (scanData.code != null && scanData.code != qrText) {
+      qrText = scanData.code;
+      if (qrText == userWorkday.busUuid) {
+        controller.pauseCamera();  
+        update();  
+        updateWorkdy(1);  
+      } else {
+        controller.pauseCamera();  
+        update();
+        
+        Get.snackbar(
+          'Erro',
+          'Código QR inválido ou não corresponde ao ônibus atual $qrText ${userWorkday.busUuid}',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.withOpacity(0.5),
+          colorText: Colors.white,
+        );
       }
-    });
-  }
+    }
+  });
+}
 
+      
+ 
   // Método para reiniciar o scanner de QR Code
   void restartScanner() {
-    qrController?.resumeCamera(); // Reiniciar o leitor de QR
-    qrText = null; // Resetar o texto do QR
-    update(); // Atualizar a UI
+    qrController?.resumeCamera();  // Reiniciar o leitor de QR
+    qrText = null;  // Resetar o texto do QR
+    update();  // Atualizar a UI
   }
 
   // Função para exibir a caixa de diálogo do QR Code
@@ -156,13 +182,16 @@ class WorkdayController extends GetxController {
   }
 
   // Função para buscar dados do workday
-  Future<void> getWorker(String userId) async {
-    // String formattedDate = usarei o futuro
-    //     "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
+  Future<void> getWorker() async {
+    String formattedDate = "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
 
     try {
-      var url = Uri.parse(
-          'https://chapa100.onrender.com/api/tpb/workday/$userId/2024-10-06');
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Usuário não está logado.');
+      }
+      String uid = user.uid;
+      var url = Uri.parse('https://chapa100.onrender.com/api/tpb/workday/$uid/$formattedDate');
       var response = await http.get(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -173,7 +202,7 @@ class WorkdayController extends GetxController {
         if (jsonData['data'] != null && jsonData['data'] is List) {
           List<dynamic> data = jsonData['data'];
           workday = data.map((e) => WorkdayModel.fromJson(e)).toList();
-
+          userWorkday = workday!.first;
           update();
         } else {
           Get.snackbar(
@@ -204,61 +233,99 @@ class WorkdayController extends GetxController {
     }
   }
 
-  // Função para atualizar o status do workday
+  void startWorkday() {
+  // Verificar se o código QR escaneado é igual ao busUuid do dia de trabalho
+  if ( identical(qrText,userWorkday.busUuid )) {
+    // Se for igual, atualize o status do workday (inicie o dia de trabalho)
+    updateWorkdy(1);  // Status 1 indica que o trabalho foi iniciado
+
+    // Iniciar o timer para atualizar a localização a cada 2 minutos
+    // locationUpdateTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+    //   updateBusLocation();  // Atualizar a localização do ônibus
+    // });
+  } else {
+    // Se o QR Code não corresponder ao busUuid, exibir mensagem de erro
+    Get.snackbar(
+      'Erro',
+      'Código QR inválido ou não corresponde ao ônibus atual',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.red.withOpacity(0.5),
+      colorText: Colors.white,
+    );
+  }
+}
+
+
+  // Função para atualizar a localização do ônibus
+  Future<void> updateBusLocation() async {
+    try {
+      if (workday != null && workday!.isNotEmpty && userPosition != null) {
+        userWorkday = workday![0];
+
+        // Dados de localização para enviar ao servidor
+        var data = {
+          "latitude": userPosition!.latitude,
+          "longitude": userPosition!.longitude,
+          "busUuid": userWorkday.busUuid,
+        };
+        String body = jsonEncode(data);
+
+        var url = Uri.parse('https://chapa100.onrender.com/api/tpb/location/update');
+        var response = await http.put(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: body,
+        );
+
+        if (response.statusCode == 200) {
+          print('Localização do ônibus atualizada com sucesso');
+        } else {
+          print('Erro ao atualizar a localização: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      print('Erro ao atualizar localização: $e');
+    }
+  }
+
+  // Função para iniciar/atualizar o dia de trabalho no servidor
   Future<void> updateWorkdy(int status) async {
     try {
-      if (workday != null && workday!.isNotEmpty) {
-        _userWorkday = workday![0];
-        if (qrText == _userWorkday.busUuid) {
-          // Converter o modelo WorkdayModel para JSON
-          var datas = {
-            "collectorUuid": _userWorkday.collectorUuid,
-            "busUuid": _userWorkday.busUuid,
-            "scheduleUuid": _userWorkday.scheduleUuid,
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('Usuário não está logado.');
+      }
+//      String formattedDate = "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
+
+      // Dados para enviar ao servidor
+       var data = {
+            "collectorUuid": userWorkday.collectorUuid,
+            "busUuid": userWorkday.busUuid,
+            "scheduleUuid": userWorkday.scheduleUuid,
             "status": status
           };
-          String body = jsonEncode(datas);
+      String body = jsonEncode(data);
 
-          var url = Uri.parse(
-              'https://chapa100.onrender.com/api/tpb/workday/${_userWorkday.mouthDay}'); // Ajuste para o endpoint correto
-          var response = await http.put(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: body,
-          );
+      var url = Uri.parse('https://chapa100.onrender.com/api/tpb/workday/${userWorkday.mouthDay}');
+      var response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
 
-          if (response.statusCode == 200) {
-            Get.snackbar(
-              'Sucesso',
-              'Status do workday atualizado com sucesso',
-              snackPosition: SnackPosition.BOTTOM,
-              backgroundColor: Colors.green.withOpacity(0.5),
-              colorText: Colors.white,
-            );
-            // Re-fetch workday data, se necessário
-            getWorker('ojsodj');
-          } else {
-            Get.snackbar(
-              'Erro',
-              'Erro ao atualizar o workday: ${response.statusCode}',
-              snackPosition: SnackPosition.BOTTOM,
-              backgroundColor: Colors.red.withOpacity(0.5),
-              colorText: Colors.white,
-            );
-          }
-        } else {
-          Get.snackbar(
-            'Erro',
-            'Código QR não corresponde ao ônibus',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.red.withOpacity(0.5),
-            colorText: Colors.white,
-          );
-        }
+      if (response.statusCode == 200) {
+        Get.snackbar(
+          'Sucesso',
+          'Dia de trabalho atualizado',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.withOpacity(0.5),
+          colorText: Colors.white,
+        );
+        print('Dia de trabalho atualizado com sucesso');
       } else {
         Get.snackbar(
           'Erro',
-          'Nenhum workday encontrado para atualizar',
+          'Erro ao atualizar o dia de trabalho: ${response.statusCode}',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red.withOpacity(0.5),
           colorText: Colors.white,
@@ -267,7 +334,7 @@ class WorkdayController extends GetxController {
     } catch (e) {
       Get.snackbar(
         'Erro',
-        'Erro ao atualizar o workday: $e',
+        'Erro ao atualizar o dia de trabalho: $e',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.withOpacity(0.5),
         colorText: Colors.white,
@@ -275,53 +342,51 @@ class WorkdayController extends GetxController {
     }
   }
 
-  // Função para determinar a posição do usuário
-  Future<Position> _determinePosition() async {
+  // Função para determinar a posição atual do usuário
+  Future<void> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Verificar se os serviços de localização estão habilitados
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       Get.snackbar(
         'Erro',
-        'Serviços de localização estão desabilitados.',
+        'Serviço de localização desabilitado. Habilite o serviço para continuar.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.withOpacity(0.5),
         colorText: Colors.white,
       );
-      return Future.error('Location services are disabled.');
+      return;
     }
 
-    // Verificar permissões de localização
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         Get.snackbar(
           'Erro',
-          'Permissões de localização negadas.',
+          'Permissão de localização negada.',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red.withOpacity(0.5),
           colorText: Colors.white,
         );
-        return Future.error('Location permissions are denied');
+        return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
       Get.snackbar(
         'Erro',
-        'Permissões de localização permanentemente negadas.',
+        'Permissão de localização permanentemente negada. Vá para as configurações do aplicativo e habilite a permissão.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.withOpacity(0.5),
         colorText: Colors.white,
       );
-      return Future.error(
-          'Location permissions are permanently denied, we cannot request permissions.');
+      return;
     }
 
-    // Obter a posição atual do usuário
-    return await Geolocator.getCurrentPosition();
+    // Localização obtida com sucesso
+    userPosition = await Geolocator.getCurrentPosition();
   }
+
 }

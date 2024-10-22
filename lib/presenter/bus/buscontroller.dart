@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:cobradortpb/infra/models/busmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';

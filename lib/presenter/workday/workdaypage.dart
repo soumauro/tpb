@@ -1,3 +1,4 @@
+import 'package:cobradortpb/presenter/workday/widjets/passscanner.dart';
 import 'package:cobradortpb/routers/router_imports.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -25,15 +26,21 @@ class WorkdayPage extends StatelessWidget {
                 children: [
                   
                   const Text('ho ho ho'),
-                  Text('${ctl.workday}'), 
-                  Text('${ctl.userPosition}'),
-                  ElevatedButton(onPressed: (){ctl.showQRDialog(context);}, child: const Text('Iniciar'))
+                  Text('saldo : ${ctl.userWorkday.balance}'), 
+                  Text('Data: ${ctl.userWorkday.mouthDay}'),
+                  Text('Data: ${ctl.userWorkday.scheduleUuid}'),
+                  ElevatedButton(onPressed: (){ctl.showQRDialog(context);}, child: const Text('Iniciar')),
                 ],
               ),
             );
           }
         },
+      
       ),
+      persistentFooterButtons: [
+        OutlinedButton.icon(onPressed: (){Get.dialog( const PassQRScannerDialog());}, label: const Text("passe"), icon: const Icon(Icons.qr_code),),
+        OutlinedButton.icon(onPressed: (){}, label: const Text("Bilhete"), icon: const Icon(Icons.qr_code),)
+      ],
     );
   }
 }
