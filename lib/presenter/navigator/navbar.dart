@@ -1,8 +1,9 @@
-
 import 'package:cobradortpb/presenter/bus/buspage.dart';
+import 'package:cobradortpb/presenter/rotas/rotaspage.dart';
 import 'package:cobradortpb/routers/router_imports.dart';
 import 'package:flutter/material.dart';
 
+import '../pass/transportpass/transportpasspage.dart';
 
 class NavigationBarPage extends StatefulWidget {
   const NavigationBarPage({super.key});
@@ -17,15 +18,21 @@ class _NavigationBarPageState extends State<NavigationBarPage> {
   int currentPageIndex = 0;
   @override
   Widget build(BuildContext context) {
-   List<Widget> pages = [
-      const WorkdayPage(),
-      const Buspage(),
-      Container(child: Text('perfil'),),
-     Container(child: Text('perfil'),),
+    List<Widget> pages = [
+      const ParagemPage(),
+      const RotaPage(),
+      const TransportPassPage(),
+      Container(
+        child: Text('perfil'),
+      ),
+      Container(
+        child: Text('perfil'),
+      ),
       //const Qrscanner(),
-     Container(child: Text('perfil'),),
-      
- ];
+      Container(
+        child: Text('perfil'),
+      ),
+    ];
 
     return Scaffold(
       bottomNavigationBar: NavigationBar(
@@ -50,7 +57,7 @@ class _NavigationBarPageState extends State<NavigationBarPage> {
           NavigationDestination(
             selectedIcon: Icon(Icons.history),
             icon: Icon(Icons.history_edu_outlined),
-            label: 'Turno',
+            label: 'Passe',
           ),
           NavigationDestination(
             selectedIcon: Icon(Icons.settings),

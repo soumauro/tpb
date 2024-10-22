@@ -1,9 +1,9 @@
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:cobradortpb/infra/apiname.dart';
-import 'package:cobradortpb/infra/models/collectores.dart';
+import 'package:cobradortpb/infra/models/clientuser.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
 
 class CreateUserPage extends StatefulWidget {
   const CreateUserPage({super.key});
@@ -27,10 +27,10 @@ class _CreateUserPageState extends State<CreateUserPage> {
   String _message = '';
 
   // Função para inserir usuário no banco de dados
-  Future<void> insertUser(CollectorsModel collector) async {
+  Future<void> insertUser(ClientUserMOdel collector) async {
     try {
       final response = await http.post(
-        Uri.parse('$collectores/insert'),
+        Uri.parse('$userclient/insert'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(collector.toJson()),
       );
@@ -66,12 +66,10 @@ class _CreateUserPageState extends State<CreateUserPage> {
         password: _passwordController.text.trim(),
       );
 
-      CollectorsModel collectorExample = CollectorsModel(
-        id: 1,
-        createdAt: DateTime.now(),
-        available: 0,
-        collectorUuid: userCredential.user?.uid,
+      ClientUserMOdel collectorExample = ClientUserMOdel(id: 1,
+               uuid: userCredential.user?.uid,
         name: _nameController.text.trim(),
+       
       );
       insertUser(collectorExample);
 

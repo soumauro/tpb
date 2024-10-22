@@ -13,7 +13,7 @@ class BusModel {
   List<LocationModel>? location; // Alterado para lista de LocationModel
   String? rotaUuid;
   List<LocationModel>? paragem; // Alterado para lista de LocationModel
-
+  String ? scheduleUuid;
   BusModel({
     this.id,
     this.createdAt,
@@ -25,7 +25,8 @@ class BusModel {
     this.activated,
     this.location,
     this.rotaUuid,
-    this.paragem
+    this.paragem,
+    this.scheduleUuid
   });
 
   // Método para converter JSON em um objeto BusModel
@@ -46,6 +47,7 @@ class BusModel {
       paragem: (json['paragem'] as List<dynamic>?)
           ?.map((loc) => LocationModel.fromJson(loc))
           .toList(), // Mapeia a lista de localização
+      scheduleUuid: json['scheduleUuid'],
       
     );
   }
@@ -63,6 +65,7 @@ class BusModel {
       'activated': activated,
       'location': location?.map((loc) => loc.toJson()).toList(), // Converte a lista de LocationModel para JSON
       'rotaUuid': rotaUuid,
+      'scheduleUuid': scheduleUuid,
       'paragem': paragem?.map((loc) => loc.toJson()).toList(), // Converte a lista de LocationModel para JSON
     };
   }
